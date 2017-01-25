@@ -3,8 +3,8 @@ const sub = redis.createClient();
 const pub = redis.createClient();
 
 function connectionHandler(connection) {
-  connection.emit('news', { hello: 'world' });
-  connection.on('my other event', function (data) {
+  connection.emit('message', { payload: 'world' });
+  connection.on('chat', function (data) {
     console.log(data);
   });
 }

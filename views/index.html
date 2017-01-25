@@ -4,15 +4,31 @@
   <meta charset="UTF-8">
   <title>Title</title>
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    var socket = io.connect();
-    socket.on('news', function (data) {
-      console.log(data);
-      socket.emit('my other event', { my: 'data' });
-    });
-  </script>
 </head>
 <body>
 <h1>Hihi</h1>
+<ul id="messages">
+
+</ul>
+<input id="messageInput" type="text" placeholder="Type message">
+<button id="btnSendMessage">Send</button>
+<script>
+  const socket = io.connect();
+  const messages = document.querySelector('#messages');
+  const messageInput = document.querySelector('#messageInput');
+  const btnSendMessage = document.querySelector('#btnSendMessage');
+
+  socket.on('message', function ({ payload }) {
+    const li = document.createElement('li');
+    li.innerHTML = payload;
+    messages.appendChild(li)
+  });
+
+  btnSendMessage.addEventListener('click', () => {
+    socket.emit('chat', {
+      payload: messageInput.value,
+    })
+  });
+</script>
 </body>
 </html>
