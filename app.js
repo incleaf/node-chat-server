@@ -1,4 +1,5 @@
 const express = require('express');
+const redis = require('redis');
 const path = require('path');
 const favicon = require('serve-favicon');
 const logger = require('morgan');
@@ -7,12 +8,13 @@ const bodyParser = require('body-parser');
 const expressSession = require('express-session');
 const connectRedis = require('connect-redis');
 
+const SECRET_KEY = 'BEENZINO';
 const RedisStore = connectRedis(expressSession);
 const rClient = redis.createClient();
 const sessionStore = new RedisStore({ client: rClient });
 const session = expressSession({
   store: sessionStore,
-  secret: 'beenzino',
+  secret: SECRET_KEY,
   resave: true,
   saveUninitialized: true
 });
@@ -30,7 +32,7 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
+app.use(cookieParser(SECRET_KEY));
 app.use(expressSession(session));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'views')));
