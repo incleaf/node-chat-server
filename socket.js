@@ -6,10 +6,6 @@ sub.on('message', (channel, message) => {
   console.log('i\'ve got message!!!!', channel, message);
 });
 
-sub.subscribe('chat', function(channel, message) {
-  console.log('subscribing...');
-  // connection.emit(channel, message);
-});
 
 function connectionHandler(connection) {
   connection.on('chat', function(data) {
@@ -17,7 +13,10 @@ function connectionHandler(connection) {
     pub.publish('chat', JSON.stringify(data));
   });
 
-
+  sub.subscribe('chat', function(channel, message) {
+    console.log('subscribing...');
+    connection.emit(channel, message);
+  });
 }
 
 module.exports = connectionHandler;

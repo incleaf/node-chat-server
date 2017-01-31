@@ -1,59 +1,82 @@
 #!/usr/bin/env node
 const cluster = require('cluster');
 const os = require('os');
-
+const net = require('net');
+const sio = require('socket.io');
+const sioRedis = require('socket.io-redis');
 const app = require('../app');
 const debug = require('debug')('node-chat-server:server');
 const http = require('http');
 const socket = require('../socket');
 
-if (cluster.isMaster && !module.parent) {
-  const forkWorker = () => {
-    let worker = cluster.fork();
-    worker.on("message", (message) => {
+const port = normalizePort(process.env.PORT || '3000');
 
+if (cluster.isMaster && !module.parent) {
+  const workers = [];
+  const spawn = (i) => {
+    workers[i] = cluster.fork();
+    workers[i].on('message', (message) => {
+      console.lo(worker.id, 'turned on');
+    });
+    workers[i].on('exit', (worker) => {
+      console.log('Worker %d died - Respawn process', worker.id);
+      spawn(i);
     });
   };
 
   // Fork Child process
   const numCPUs = os.cpus().length;
   for (let i = 0; i < numCPUs; i++) {
-    forkWorker();
+    spawn(i);
   }
 
-  cluster.on("exit", (worker) => {
-    console.log("Worker %d died - Respawn process", worker.id);
-    forkWorker();
-  });
+  const getWorkerIndex = function(ip, len) {
+    let s = '';
+    for (let i = 0, _len = ip.length; i < _len; i++) {
+      if (!isNaN(ip[i])) {
+        s += ip[i];
+      }
+    }
+
+    return Number(s) % len;
+  };
+
+  // Create the outside facing server listening on our port.
+  const server = net.createServer({ pauseOnConnect: true }, function(connection) {
+    const worker = workers[getWorkerIndex(connection.remoteAddress, numCPUs)];
+    worker.send('sticky-session:connection', connection);
+  }).listen(port);
+
 } else {
-  const port = normalizePort(process.env.PORT || '3000');
+  console.log('hihi')
   app.set('port', port);
 
 
   const server = http.createServer(app);
-  const io = require('socket.io')(server);
+  const io = sio(server);
+  io.adapter(sioRedis({ host: 'localhost', port: 6379 }));
   io.on('connection', socket);
 
-
-  server.listen(port);
+  server.listen(0, 'localhost');
   server.on('error', onError);
   server.on('listening', onListening);
 
-  function normalizePort(val) {
-    const port = parseInt(val, 10);
 
-    if (isNaN(port)) {
-      // named pipe
-      return val;
+  process.on('message', function(message, connection) {
+    console.log('I am process', process.pid);
+
+    if (message !== 'sticky-session:connection') {
+      return;
     }
 
-    if (port >= 0) {
-      // port number
-      return port;
-    }
+    console.log('asdffadsfads', process.pid);
 
-    return false;
-  }
+    // Emulate a connection event on the server by emitting the
+    // event with the connection the master sent us.
+    server.emit('connection', connection);
+
+    connection.resume();
+  });
 
   function onError(error) {
     if (error.syscall !== 'listen') {
@@ -85,4 +108,20 @@ if (cluster.isMaster && !module.parent) {
       : 'port ' + addr.port;
     debug('Listening on ' + bind);
   }
+}
+
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
 }
